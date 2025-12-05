@@ -1,0 +1,31 @@
+#Develop an OOP-based solution to continue W3-A1 by adding an "End of File" message to your project
+
+class FileProcessing:
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+
+    def read_file(self):
+        with open(self.filepath, "r", encoding = "utf-8") as f:
+            return f.read()
+
+    def count_star(self):
+        content = self.read_file()
+        return content.count("*")
+
+    def append_end_of_file(self):
+        #Adding 'End of File' at last line
+        with open(self.filepath, "a", encoding="utf-8") as f:
+            f.write("\n--- End of File ---\n")
+
+
+if __name__ == "__main__":
+    filepath = "/Users/aiauy_aloha/Desktop/demo_file.txt"
+
+    file = FileProcessing(filepath)
+
+    print("Data of File:")
+    file.read_file()
+
+    count = file.count_star()
+    print("Number of stars =", count)
