@@ -1,0 +1,25 @@
+#one class, 2 method: open and search "*"
+
+class FileProcessing:
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+
+    def read_file(self):
+        with open(self.filepath, "r", encoding = "utf-8") as f:
+            return f.read()
+
+    def count_star(self):
+        content = self.read_file()
+        return content.count("*")
+
+if __name__ == "__main__":
+    filepath = "/Users/aiauy_aloha/Desktop/demo_file.txt"
+
+    file = FileProcessing(filepath)
+
+    print("Data of File:")
+    file.read_file()
+
+    count = file.count_star()
+    print("Number of stars =", count)
