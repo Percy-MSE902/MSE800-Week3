@@ -1,0 +1,213 @@
+import sqlite3
+from typing import List, Tuple
+
+# -----------------------
+# Database Helper Class
+# -----------------------
+class Database:
+    def __init__(self, db_path: str = "mse_school.db"):
+        # Connect to Data Base (file-based sqlite db)
+        self.conn = sqlite3.connect(db_path)
+        # Result as tuple but using index for reading
+        self.conn.row_factory = sqlite3.Row
+        # open foreign key constraints
+        self.conn.execute("PRAGMA foreign_keys = ON;")
+        self.cur = self.conn.cursor()
+
+    def commit(self):
+        self.conn.commit()
+
+    def close(self):
+        self.conn.close()
+
+    def create_tables(self):
+        # Table of Student
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS Student (
+            Stu_ID TEXT PRIMARY KEY,
+            firstname TEXT NOT NULL,
+            surname TEXT NOT NULL,
+            email TEXT UNIQUE,
+            dob TEXT
+        );
+        """)
+
+        # Table of Instructor
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS Instructor (
+            Ins_ID TEXT PRIMARY KEY,
+            ins_name TEXT NOT NULL,
+            email TEXT UNIQUE,
+            expert_field TEXT
+        );
+        """)
+
+        # Table of Course
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS Course (
+            Course_code TEXT PRIMARY KEY,
+            course_name TEXT NOT NULL,
+            description TEXT,
+            criteria TEXT
+        );
+        """)
+
+        # Table connection of Student - Course (Applied)
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS Applied (
+            Stu_ID TEXT,
+            Course_code TEXT,
+            applied_date TEXT,
+            PRIMARY KEY (Stu_ID, Course_code),
+            FOREIGN KEY (Stu_ID) REFERENCES Student(Stu_ID) ON DELETE CASCADE,
+            FOREIGN KEY (Course_code) REFERENCES Course(Course_code) ON DELETE CASCADE
+        );
+        """)
+
+        # Table connection of Instructor - Course (Teaches)
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS Teaches (
+            Ins_ID TEXT,
+            Course_code TEXT,
+            PRIMARY KEY (Ins_ID, Course_code),
+            FOREIGN KEY (Ins_ID) REFERENCES Instructor(Ins_ID) ON DELETE CASCADE,
+            FOREIGN KEY (Course_code) REFERENCES Course(Course_code) ON DELETE CASCADE
+        );
+        """)
+
+        self.commit()
+        print("Created tables (if not exist).")
+
+    # -------------------------
+    # Helper insert functions
+    # -------------------------
+    def add_student(self, stu_id: str, firstname: str, surname: str, email: str = None, dob: str = None):
+        """Add student in Table of Student"""
+        self.cur.execute("""
+        INSERT OR REPLACE INTO Student (Stu_ID, firstname, surname, email, dob)
+        VALUES (?, ?, ?, ?, ?);
+        """, (stu_id, firstname, surname, email, dob))
+        self.commit()
+
+    def add_instructor(self, ins_id: str, ins_name: str, email: str = None, expert_field: str = None):
+        """Add instructor"""
+        self.cur.execute("""
+        INSERT OR REPLACE INTO Instructor (Ins_ID, ins_name, email, expert_field)
+        VALUES (?, ?, ?, ?);
+        """, (ins_id, ins_name, email, expert_field))
+        self.commit()
+
+    def add_course(self, course_code: str, course_name: str, description: str = None, criteria: str = None):
+        """Add course"""
+        self.cur.execute("""
+        INSERT OR REPLACE INTO Course (Course_code, course_name, description, criteria)
+        VALUES (?, ?, ?, ?);
+        """, (course_code, course_name, description, criteria))
+        self.commit()
+
+    def apply_student_to_course(self, stu_id: str, course_code: str, applied_date: str = None):
+        """Connect student and course (Applied)"""
+        self.cur.execute("""
+        INSERT OR REPLACE INTO Applied (Stu_ID, Course_code, applied_date)
+        VALUES (?, ?, ?);
+        """, (stu_id, course_code, applied_date))
+        self.commit()
+
+    def assign_instructor_to_course(self, ins_id: str, course_code: str):
+        """Connect instructor and course (Teaches)"""
+        self.cur.execute("""
+        INSERT OR REPLACE INTO Teaches (Ins_ID, Course_code)
+        VALUES (?, ?);
+        """, (ins_id, course_code))
+        self.commit()
+
+    # -------------------------
+    # Queries
+    # -------------------------
+    def count_students_in_course(self, course_code: str) -> int:
+        """Return the number of students enrolled in the specified course"""
+        self.cur.execute("""
+        SELECT COUNT(*) AS cnt
+        FROM Applied
+        WHERE Course_code = ?
+        """, (course_code,))
+        row = self.cur.fetchone()
+        return row["cnt"] if row else 0
+
+    def list_instructors_for_course(self, course_code: str) -> List[str]:
+        """Return the number of instructors in the specified course"""
+        self.cur.execute("""
+        SELECT I.ins_name
+        FROM Instructor I
+        JOIN Teaches T ON I.Ins_ID = T.Ins_ID
+        WHERE T.Course_code = ?
+        """, (course_code,))
+        rows = self.cur.fetchall()
+        # Return the list of name (string)
+        return [r["ins_name"] for r in rows]
+
+# -----------------------
+# Example
+# -----------------------
+def populate_sample_data(db: Database):
+    """Example data for testing"""
+    # --- Students ---
+    db.add_student("S001", "Alice", "Wong", "alice@example.com", "1998-05-10")
+    db.add_student("S002", "Bob", "Smith", "bob@example.com", "1997-03-22")
+    db.add_student("S003", "Charlie", "Nguyen", "charlie@example.com", "1999-08-01")
+
+    # --- Instructors ---
+    db.add_instructor("I001", "Dr. Emily Brown", "emily.brown@univ.nz", "Software Engineering")
+    db.add_instructor("I002", "Prof. John Lee", "john.lee@univ.nz", "Distributed Systems")
+    db.add_instructor("I003", "Dr. Sarah Tan", "sarah.tan@univ.nz", "Machine Learning")
+
+    # --- Courses ---
+    db.add_course("MSE800", "Foundations of MSE", "Intro to Masters SE", "Pass/Fail")
+    db.add_course("MSE801", "Advanced Software Engineering", "Design & Architecture", "Grade")
+    db.add_course("MSE802", "Research Methods", "Research skills", "Grade")
+
+    # --- Apply students to courses ---
+    # S001 -> MSE800, MSE801
+    db.apply_student_to_course("S001", "MSE800", "2025-02-01")
+    db.apply_student_to_course("S001", "MSE801", "2025-02-01")
+    # S002 -> MSE800
+    db.apply_student_to_course("S002", "MSE800", "2025-02-02")
+    # S003 -> MSE801
+    db.apply_student_to_course("S003", "MSE801", "2025-02-03")
+
+    # --- Assign instructors to courses (Teaches) ---
+    db.assign_instructor_to_course("I001", "MSE801")
+    db.assign_instructor_to_course("I002", "MSE801")
+    db.assign_instructor_to_course("I003", "MSE802")
+    # Add one instructor also for MSE800
+    db.assign_instructor_to_course("I002", "MSE800")
+
+
+def main():
+    # Create object Database
+    db = Database("mse_school.db")
+    try:
+        # Create Table
+        db.create_tables()
+
+        # Adding sample data
+        populate_sample_data(db)
+
+        # 1) Show the students of MSE800
+        mse800_count = db.count_students_in_course("MSE800")
+        print(f"Number of students in MSE800: {mse800_count}")
+
+        # 2) Show the teachers list of MSE801
+        mse801_teachers = db.list_instructors_for_course("MSE801")
+        print("Teachers teaching MSE801:")
+        if mse801_teachers:
+            for t in mse801_teachers:
+                print(" -", t)
+        else:
+            print(" (No teachers assigned)")
+
+    finally:
+        db.close()
+
+if __name__ == "__main__":
+    main()
