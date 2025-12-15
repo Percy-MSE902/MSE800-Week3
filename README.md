@@ -1,4 +1,4 @@
-System for SQLite3
+System for SQLit3
 * The system manages students, instructors, and courses with the following operations:
     1. Add new students with ID, name, email, and date of birth.
     2. Add new instructors with ID, name, email, and expertise field.
